@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI City Climate Command</title>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --card-bg: #161b22;
+            --text: #c9d1d9;
+            --green: #2ea44f;
+            --yellow: #d29922;
+            --red: #f85149;
+            --blue: #58a6ff;
+            --border: #30363d;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 30px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #ffffff;
+            font-size: 2.2rem;
+            margin-bottom: 30px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            max-width: 1100px;
+            margin: 0 auto 30px auto;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .card.transport { border-top: 4px solid var(--green); }
+        .card.settlements { border-top: 4px solid var(--yellow); }
+        .card.misinfo { border-top: 4px solid var(--red); }
+
+        .card h2 {
+            margin-top: 0;
+            font-size: 1.2rem;
+            color: #ffffff;
+        }
+
+        p {
+            font-size: 0.95rem;
+            line-height: 1.5;
+            color: #8b949e;
+        }
+
+        button {
+            width: 100%;
+            background-color: #21262d;
+            border: 1px solid var(--border);
+            color: var(--blue);
+            padding: 10px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background-color: #30363d;
+        }
+
+        .table-container {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        th, td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background-color: #21262d;
+            color: #ffffff;
+            font-size: 0.9rem;
+        }
+
+        .badge {
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+
+        .SUCCESS { background: rgba(46, 164, 79, 0.2); color: var(--green); }
+        .WARNING { background: rgba(210, 153, 34, 0.2); color: var(--yellow); }
+        .RESOLVED { background: rgba(248, 81, 73, 0.2); color: var(--red); }
+    </style>
+</head>
+<body>
+
+    <h1>AI City Climate Command</h1>
+
+    <div class="grid">
+        <div class="card transport">
+            <h2>Transportation AI</h2>
+            <p>Optimize transit schedules and routing to lower municipal carbon emissions.</p>
+            <button onclick="sendEvent('TRANSPORT', 'Transit Reroute', 'Optimized Line 12 schedule', 'SUCCESS')">
+                Optimize Route
+            </button>
+        </div>
+
+        <div class="card settlements">
+            <h2>Settlement Risk Map</h2>
+            <p>Predictive spatial analysis for flood and heat risks in informal settlements.</p>
+            <button onclick="sendEvent('INFORMAL_SETTLEMENT', 'Flood Alert', 'High risk detected in Sector 4', 'WARNING')">
+                Scan Settlements
+            </button>
+        </div>
+
+        <div class="card misinfo">
+            <h2>Disinfo Counter-System</h2>
+            <p>NLP tools to identify and mitigate viral anti-sustainability campaigns.</p>
+            <button onclick="sendEvent('MISINFORMATION', 'Bot Mitigation', 'Flagged automated disinfo cluster', 'RESOLVED')">
+                Scan Disinformation
+            </button>
+        </div>
+    </div>
+
+    <div class="table-container card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h2 style="margin: 0;">
+                Live Database Log
+                <span id="liveDot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--yellow);margin-left:8px;"></span>
+                <span id="liveStatus" style="font-size:0.7rem;font-weight:normal;color:#8b949e;vertical-align:middle;">connecting…</span>
+            </h2>
+            <button style="width: auto; margin: 0; padding: 6px 12px;" onclick="seedData()">Seed Data</button>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Category</th>
+                    <th>Title</th>
+                    <th>Description</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="logs"></tbody>
+        </table>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <script>
+        const API = '/api/climate';
+
+        async function loadLogs() {
+            try {
+                const res = await fetch(`${API}/logs`);
+                const logs = await res.json();
+                const tbody = document.getElementById('logs');
+                tbody.innerHTML = logs.map(log => rowHtml(log)).join('');
+            } catch (err) {
+                console.error("API error:", err);
+            }
+        }
+
+        function rowHtml(log) {
+            return `
+                <tr data-id="${log.id}">
+                    <td>${log.id}</td>
+                    <td><strong>${log.category}</strong></td>
+                    <td>${log.title}</td>
+                    <td>${log.description}</td>
+                    <td><span class="badge ${log.status}">${log.status}</span></td>
+                </tr>
+            `;
+        }
+
+        function prependRow(log) {
+            const tbody = document.getElementById('logs');
+            // Avoid duplicating a row the manual sendEvent() already added via loadLogs().
+            if (tbody.querySelector(`tr[data-id="${log.id}"]`)) return;
+            const row = document.createElement('tbody');
+            row.innerHTML = rowHtml(log).trim();
+            const tr = row.firstElementChild;
+            tr.setAttribute('data-id', log.id);
+            tbody.prepend(tr);
+        }
+
+        // --- Live WebSocket connection -------------------------------------
+        // Subscribes to /topic/logs so every new event (manual click, or the
+        // backend's automatic simulator) appears instantly without polling.
+        function connectLive() {
+            const socket = new SockJS('/ws');
+            const stompClient = Stomp.over(socket);
+            stompClient.debug = null; // quiet console
+
+            stompClient.connect({}, () => {
+                document.getElementById('liveDot').style.background = 'var(--green)';
+                document.getElementById('liveStatus').textContent = 'live';
+
+                stompClient.subscribe('/topic/logs', (message) => {
+                    const log = JSON.parse(message.body);
+                    prependRow(log);
+                });
+            }, () => {
+                document.getElementById('liveDot').style.background = 'var(--red)';
+                document.getElementById('liveStatus').textContent = 'disconnected — retrying…';
+                setTimeout(connectLive, 3000);
+            });
+        }
+
+        async function sendEvent(category, title, description, status) {
+            await fetch(`${API}/log`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ category, title, description, status })
+            });
+            loadLogs();
+        }
+
+        async function seedData() {
+            await fetch(`${API}/init-demo`);
+            loadLogs();
+        }
+
+        seedData();
+        connectLive();
+    </script>
+</body>
+</html>
